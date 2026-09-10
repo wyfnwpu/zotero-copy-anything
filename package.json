@@ -1,7 +1,7 @@
 {
   "name": "zotero-copy-anything",
   "type": "module",
-  "version": "1.0.7",
+  "version": "1.0.10",
   "description": "Zotero Copy Anything",
   "config": {
     "addonName": "Zotero Copy Anything",
@@ -12,13 +12,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/windfollowingheart/zotero-copy-anything.git"
+    "url": "git+https://github.com/wyfnwpu/zotero-copy-anything.git"
   },
   "author": "windfollowingheart",
   "bugs": {
-    "url": "https://github.com/windfollowingheart/zotero-copy-anything/issues"
+    "url": "https://github.com/wyfnwpu/zotero-copy-anything/issues"
   },
-  "homepage": "https://github.com/windfollowingheart/zotero-copy-anything#readme",
+  "homepage": "https://github.com/wyfnwpu/zotero-copy-anything#readme",
   "license": "AGPL-3.0-or-later",
   "scripts": {
     "start": "zotero-plugin serve",
