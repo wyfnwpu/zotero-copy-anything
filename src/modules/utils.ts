@@ -10,8 +10,9 @@ async function copyFiles(filePaths: string[]) {
         progress: 100,
       })
       .show();
+    return;
   }
-  const binaryFilePath = binaryFileInfo.saveFilePath;
+  const binaryFilePath = PathUtils.normalize(binaryFileInfo.saveFilePath);
 
   if (await Zotero.Utilities.Internal.exec(binaryFilePath, filePaths)) {
     new ztoolkit.ProgressWindow(addon.data.config.addonName)
@@ -64,27 +65,42 @@ async function getBinaryFilePath(): Promise<BinaryFileInfo> {
   }
   binaryFileInfo.isExist = await IOUtils.exists(saveFilePath);
   binaryFileInfo.downloadUrl = downloadUrl;
+  // Do not normalize a path before the file is created. Zotero 10's
+  // PathUtils.normalize() throws NS_ERROR_FILE_NOT_FOUND for missing paths.
   binaryFileInfo.saveFilePath = saveFilePath;
   return binaryFileInfo;
 }
 
 async function downloadBinaryFile(): Promise<boolean> {
-  const binaryFileInfo = await getBinaryFilePath();
-  if (binaryFileInfo.isExist) {
-    console.log("Binary file already exist");
-    return true;
-  }
-  const downloadUrl = binaryFileInfo.downloadUrl;
-  const saveFilePath = binaryFileInfo.saveFilePath;
-  const response = await fetch(downloadUrl);
-  if (!response.ok) {
-    console.log("Download binary file failed");
-    return false;
-  }
+  try {
+    const binaryFileInfo = await getBinaryFilePath();
+    if (binaryFileInfo.isExist) {
+      console.log("Binary file already exist");
+      return true;
+    }
+    const downloadUrl = binaryFileInfo.downloadUrl;
+    const saveFilePath = binaryFileInfo.saveFilePath;
+    const saveDir = PathUtils.parent(saveFilePath);
+    if (!saveDir) {
+      throw new Error(`Invalid binary file path: ${saveFilePath}`);
+    }
+    await IOUtils.makeDirectory(saveDir, {
+      createAncestors: true,
+      ignoreExisting: true,
+    });
+    const response = await fetch(downloadUrl);
+    if (!response.ok) {
+      console.log("Download binary file failed");
+      return false;
+    }
 
-  const arrayBuffer = await response.arrayBuffer();
-  const uint8Array = new Uint8Array(arrayBuffer);
-  if (await IOUtils.write(saveFilePath, uint8Array)) {
+    const arrayBuffer = await response.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    if (!(await IOUtils.write(saveFilePath, uint8Array))) {
+      console.log("Save binary file failed");
+      return false;
+    }
+
     if (Zotero.isMac || Zotero.isLinux) {
       const chmodPaths = ["/bin/chmod", "/usr/sbin/chmod", "/usr/bin/chmod"];
       let chmodPath = "";
@@ -111,8 +127,8 @@ async function downloadBinaryFile(): Promise<boolean> {
     }
     console.log("Save binary file successfully");
     return true;
-  } else {
-    console.log("Save binary file failed");
+  } catch (error) {
+    console.error("Download binary file failed", error);
     return false;
   }
 }

@@ -140,6 +140,11 @@ export class KeyExampleFactory {
 }
 
 export class UIExampleFactory {
+  private static itemMenuBindings = new WeakMap<
+    Window,
+    { menuItem: Element }
+  >();
+
   @example
   static registerStyleSheet(win: _ZoteroTypes.MainWindow) {
     const doc = win.document;
@@ -175,16 +180,25 @@ export class UIExampleFactory {
     );
 
     Zotero.MenuManager.registerMenu({
-      menuID: "your-menu",
+      menuID: "zotero-copy-anything-tab-menu",
       pluginID: config.addonID,
       target: "main/tab",
       menus: [
         {
           menuType: "menuitem",
-          l10nID: getLocaleID("zotero-copy-anything-tab-label"),
+          onShowing: (_event, context) => {
+            // Zotero 10's Fluent localization can clear dynamically-created
+            // tab menu labels. Set the concrete label after the item exists.
+            context.menuElem.setAttribute(
+              "label",
+              getString("zotero-copy-anything-label"),
+            );
+          },
           onCommand: async (event, context) => {
-            const items = context.items;
-            await copyItems(items);
+            const items = context.items?.filter(Boolean) ?? [];
+            if (items.length) {
+              await copyItems(items);
+            }
           },
         },
       ],
@@ -192,22 +206,41 @@ export class UIExampleFactory {
   }
 
   @example
-  static registerRightClickMenuItem() {
-    const menuIcon = `chrome://${addon.data.config.addonRef}/content/icons/favicon@0.5x.png`;
-    // item menuitem with icon
-    ztoolkit.Menu.register("item", {
-      tag: "menuitem",
-      id: "zotero-itemmenu-zotero-copy-anything",
-      label: getString("zotero-copy-anything-label"),
-      commandListener: async (ev) => {
-        const ZoteroPane = ztoolkit.getGlobal("ZoteroPane");
+  static registerRightClickMenuItem(win: _ZoteroTypes.MainWindow) {
+    const doc = win.document;
+    const menu = doc.getElementById("zotero-itemmenu");
+    if (!menu) {
+      console.error("Zotero item context menu was not found");
+      return;
+    }
 
-        const items = ZoteroPane.getSelectedItems();
+    this.unregisterRightClickMenuItem(win);
 
-        await copyItems(items);
-      },
-      icon: menuIcon,
+    const menuItem = doc.createXULElement
+      ? doc.createXULElement("menuitem")
+      : doc.createElement("menuitem");
+    menuItem.id = "zotero-itemmenu-zotero-copy-anything";
+    menuItem.setAttribute("class", "zotero-copy-anything-menuitem");
+    menuItem.setAttribute("label", getString("zotero-copy-anything-label"));
+    menuItem.addEventListener("command", () => {
+      void (async () => {
+        const items = win.ZoteroPane.getSelectedItems();
+        if (items?.length) {
+          await copyItems(items);
+        }
+      })().catch((error) => {
+        console.error("Copy command failed", error);
+      });
     });
+
+    menu.appendChild(menuItem);
+    this.itemMenuBindings.set(win, { menuItem });
+  }
+
+  static unregisterRightClickMenuItem(win: Window) {
+    const binding = this.itemMenuBindings.get(win);
+    binding?.menuItem.remove();
+    this.itemMenuBindings.delete(win);
   }
 
   @example
