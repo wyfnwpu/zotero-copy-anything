@@ -49,6 +49,9 @@ async function onMainWindowLoad(win: _ZoteroTypes.MainWindow): Promise<void> {
   addon.data.ztoolkit = createZToolkit();
 
   win.MozXULElement.insertFTLIfNeeded(
+    `${addon.data.config.addonRef}-addon.ftl`,
+  );
+  win.MozXULElement.insertFTLIfNeeded(
     `${addon.data.config.addonRef}-mainWindow.ftl`,
   );
 
@@ -69,7 +72,7 @@ async function onMainWindowLoad(win: _ZoteroTypes.MainWindow): Promise<void> {
   //   text: `[30%] ${getString("startup-begin")}`,
   // });
 
-  UIExampleFactory.registerRightClickMenuItem();
+  UIExampleFactory.registerRightClickMenuItem(win);
   UIExampleFactory.registerRightClickReadViewer();
 
   if (await downloadBinaryFile()) {
@@ -89,6 +92,7 @@ async function onMainWindowLoad(win: _ZoteroTypes.MainWindow): Promise<void> {
 }
 
 async function onMainWindowUnload(win: Window): Promise<void> {
+  UIExampleFactory.unregisterRightClickMenuItem(win);
   ztoolkit.unregisterAll();
   addon.data.dialog?.window?.close();
 }
